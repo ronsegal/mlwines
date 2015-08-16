@@ -8,27 +8,26 @@ runtime: shiny
 
 ## Introduction
 
-This R Shiny application was developed as part of an assignment for the Coursera 'Developing Data Products' data science series course. It uses the k-means clustering, unsupervised, machine learning algorithm, to try to recognise which wines are attributable to which of 3 growers from chemical analysis data.  The data set was downloaded from the UCI machine learning repository (archive.ics.uci.edu/ml/datasets/Wine). It is for 178 instances of wines grown in the same region of Italy, providing the quantities of 13 constituents found in each of three types of wine.
+This R Shiny application was developed as part of an assignment for the Coursera 'Developing Data Products' data science series course. It uses the k-means clustering, unsupervised, machine learning algorithm, to try to recognise from chemical analysis data, which wines are attributable to which of 3 growers.  The data set was downloaded from the UCI machine learning repository (http://archive.ics.uci.edu/ml/datasets/Wine); it provides the quantities of 13 constituents found in 178 instances of wine coming from 3 different growers in the same region of Italy.
 
-The objective of the application is to graphically explore and try to identify the number of k-means clusters (which must be specified in advance of running the algorithm) that best partitions the data, assuming that we don't know in advance that there are three different types of wine. Effectively this is a kind of machine wine "tasting" to try to recognise wines coming from different (anonymous) growers!
+The objective of the application is to graphically explore and try to identify the number of k-means clusters that best partitions the wine data. Effectively this is a kind of machine wine "tasting" to try to separate wines coming from different (anonymous) cultivators!
 
-The k-means clusters algorithm operates upon all 13 variables, with the wine "type" variable being dropped from the set. The output is projected onto a two dimensional scatterplot by using discrproj (from R package fpc), which implements linear dimension reduction. In addition the Silhouette method (ftp://adrem.ua.ac.be/pub/preprints/87/Silgra87.pdf) is used to calculate an average silhouette width, which provides an evaluation of clustering validity, which can be used to select an 'appropriate' number of clusters.  (a silhouette plot isn't shown).
+The k-means clusters algorithm operates upon all 13 variables, with the wine "type" variable being removed from the set for the purposes of the analysis. The output is projected onto a two dimensional scatterplot, using discrproj (from the R package fpc), which implements linear dimension reduction. In addition the Silhouette method (ftp://adrem.ua.ac.be/pub/preprints/87/Silgra87.pdf) is used to calculate an average silhouette width, which provides an evaluation of clustering validity, which can be used to select an 'appropriate' number of clusters.  (a silhouette plot itself isn't shown).
 
 ## Usage
 
-The number of clusters to be used by the k-means clustering algorithm is selected using the slider on the left of the plot. When the slider is moved the plot immediately shows the result, with different colours representing each cluster.
+The number of clusters to be used by the k-means clustering algorithm is selected using the slider on the left of the plot. When the slider is moved the plot immediately shows the resulting clusters, with different colours representing each cluster.
 
-At the bottom of the plot there is a red band with a numeric label indicating the average silhouette width. (Note that the silhouette algorithm isn't valid for a single cluster, so the band isn't shown in that case.)  A larger average width is indicative of a more appropriate number of clusters.
+At the bottom of the plot there is a red band with a numeric label indicating the average silhouette width. (Note that the silhouette algorithm isn't valid for a single cluster, so the band isn't shown in that case.)  A larger average width is indicative of better cluster separation.
 
-A 'Show Wine Growers' check box overlays the plot with wine 'type' labels, which indicate the grower to which each wine sample is attributable.
+Checking the 'Show Wine Growers'check box overlays the plot with wine 'type' numeric labels, which indicate the grower to which each wine sample is in reality attributable. From this it can be seen how accurately the clusters are allocating wines to growers.  Clearly this will largely depend on how much variance in the chemical quantities is attributable to different growers. It is also possible of course that different conditions within a grower could giver rise to marked differences in chemical composition, which would likely be reflected in the clustering.
 
-Finally, a numeric input box enables the value of the pseudo random number 'seed' to be set, which changes the sequence of random numbers used in the calculations, which for example randomises the start centroid of each cluster.
+Finally, a numeric input box enables the value of the pseudo random number 'seed' to be modified. This changes the sequence of random numbers used in the calculations, which determines the initial starting position of each cluster, which the k-means algorithm tries to optimise.
 
 
-``` {r, echo = FALSE, message=FALSE}
+``` {r, echo = FALSE, message=FALSE, warning=FALSE}
 
-# clear global environment
-# rm(list=ls())
+options(rgl.useNULL=TRUE) #fixes a warning message
 library(shiny)
 library(cluster)
 library(HSAUR)
@@ -39,7 +38,8 @@ library(fpc)
 winedata<<-read.csv("data/wine.data", sep=",")
 # Wine data from: http://archive.ics.uci.edu/ml/datasets/Wine
 
-names(winedata)<<- c("Type","Alcohol","Malic", "Ash", "Alcalinity", "Magnesium", "Phenols", "Flavanoids", "Nonflavanoids", "Proanthocyanins", "Colorintensity", "Hue", "Dilution", "Proline")           
+# Most of these variable names aren't actually used in the code below
+names(winedata)<<- c("Type","Alcohol","Malic", "Ash", "Alcalinity", "Magnesium", "Phenols", "Flavanoids", "Nonflavanoids", "Proanthocyanins", "Colorintensity", "Hue", "Dilution", "Proline")  
 
 wines<<-winedata
 wines$Type<-NULL    # Remove the 'Type' variable for 3 growers, i.e. values 1,2, or 3
@@ -57,11 +57,7 @@ cRamp <<- function(x){
 ```
 
 
-## Embedded Application
-
-It's also possible to embed an entire Shiny application within an R Markdown document using the `shinyAppDir` function. This example embeds a Shiny application located in another directory:
-
-```{r, echo = FALSE, message=FALSE}
+```{r, echo = FALSE, message=FALSE, warning=FALSE}
 
 shinyApp(
   
@@ -105,10 +101,10 @@ shinyApp(
        } else {
         sk2avwidth<<-0 # value used to indicate an error
        }
-       # Note - discrproj (from fpc) implements linear dimension reduction for classification
-       # $proj contains coordinates of the original data points projected onto a 2d space
-       # It has the same dimensions as the original with the first two dimensions
-       # providing the best separation of the clusters
+  # Note - discrproj (from fpc) implements linear dimension reduction for classification
+  # $proj contains coordinates of the original data points projected onto a 2d space
+  # It has the same dimensions as the original with the first two dimensions
+  # providing the best separation of the clusters
        
        xprojection<-discrproj(wines, km$cluster)$proj # See note above 
        xprojframe<<-data.frame(xprojection)
@@ -121,6 +117,7 @@ shinyApp(
   output$plot1 <- renderPlot({
     numclusters<-totalClusters()
     par(mar = c(6.1, 5.1, 0, 1))
+    
     # Show grower designators if check box ticked
     if (input$growers) { 
     plotgrowers <- geom_text(data=xprojframe, mapping=aes(x=X1, y=X2, label=winedata$Type), size=4,  color="black")
@@ -132,19 +129,24 @@ shinyApp(
     s2 <- geom_text(aes(x=sk2avwidth*10,y=colMin["X2"]-1, label=round(sk2avwidth,digits=2),hjust=1))
     s3 <- geom_text(aes(x=sk2avwidth*10,y=colMin["X2"]-1, label="Silhouette Av Width", vjust=-1, hjust=1))
     s4 <- geom_text(aes(x=colMin["X1"],y=colMin["X2"]-0.5, label="Silhouette Not Applicable with 1 Cluster", hjust=0))
-    # A width of 0 is used to indicate an error, generally when number of clusters < 2
-    if (sk2avwidth > 0) {
+
+# A width of 0 is used to indicate an error, generally when number of clusters < 2
+    if (sk2avwidth > 0) { # Silhouette is valid so show
     plotsilhouette <- c(s1,s2,s3)
     } else {
-    plotsilhouette <- s4}
+    plotsilhouette <- s4} # Silhouette not valid
     
     ggplot() +
     # Scatterplot of k-means model
-    geom_point(data=xprojframe, mapping=aes(x=X1, y=X2, fill=cRamp(km$cluster)), size=6, shape=21, color="black") +
+    geom_point(data=xprojframe, mapping=aes(x=X1, y=X2, fill=cRamp(km$cluster)),
+               size=6, shape=21, color="black") +
     ggtitle("Machine Wine \"Tasting\" Clusters") +
         theme(plot.title = element_text(size=22, face="bold", colour="darkred")) +
       # Remove axes ticks and text
-      theme(axis.ticks.x=element_blank(), axis.ticks.y=element_blank(),axis.text.x=element_blank(), axis.text.y=element_blank(),axis.title.x=element_blank(), axis.title.y=element_blank()) +
+      theme(axis.ticks.x=element_blank(),
+            axis.ticks.y=element_blank(),axis.text.x=element_blank(),
+            axis.text.y=element_blank(),axis.title.x=element_blank(),
+            axis.title.y=element_blank()) +
         # Modify legend
         scale_fill_discrete(name="Clusters", labels=seq(1,numclusters,1)) +
             plotgrowers +
@@ -155,7 +157,7 @@ shinyApp(
   
 },
 
-options = list(height=450)
+options = list(height=500) # The height of the plot
 
 )
 ```
